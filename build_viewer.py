@@ -1,4 +1,4 @@
-"""Build HCR_probe_finder.html from every designer's workbook in a folder.
+"""""Build HCR_probe_finder.html from every designer's workbook in a folder.
 
 Usage:  python build_viewer.py [data_folder] [output.html]
         data_folder defaults to "data" next to this script; output defaults to "index.html" next to this script,
