@@ -1,0 +1,5 @@
+# Excel lock files and local build output
+~$*
+_site/
+__pycache__/
+.DS_Store
