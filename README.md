@@ -40,26 +40,3 @@ for GGGG/CCCC and runs of 5.
 The build checks that every oligo carries the initiator of its set's amplifier and notes any set
 that shares oligos with another person's set.
 
-## Publishing on GitHub Pages
-
-1. On GitHub, create a new repository named `hcr-probe-finder` (owner `tdblab`).
-2. Upload this folder with git (the web uploader takes at most 100 files at a time, and `tx/` has more than 400):
-   ```
-   cd HCR_probe_database
-   git init -b main
-   git add .
-   git commit -m "HCR probe finder"
-   git remote add origin https://github.com/tdblab/hcr-probe-finder.git
-   git push -u origin main
-   ```
-3. In the repository, open **Settings > Pages** and set **Source** to **GitHub Actions**.
-   The workflow in `.github/workflows/` builds and publishes the page; watch it on the **Actions** tab.
-4. Because tirthadasbanerjee.com is the custom domain of tdblab.github.io, the page appears at
-   **https://tirthadasbanerjee.com/hcr-probe-finder/** (also at https://tdblab.github.io/hcr-probe-finder/).
-
-To update: edit the Excel files, then `git add . && git commit -m "update" && git push`. The page rebuilds itself.
-
-GitHub Pages sites are public on the internet, even when the repository is private, unless the
-repository belongs to an organization on GitHub Enterprise Cloud, which can publish a site privately
-to people with read access to the repository. If the probe sequences should stay within the lab,
-keep the repository private without Pages and share `index.html` directly, or use Enterprise Cloud.
