@@ -3,6 +3,9 @@
 All HCR probe sets designed in the lab, one Excel file per person, plus a searchable viewer
 (`index.html`) built from them.
 
+<img width="1262" height="1244" alt="hcr_probe_finder" src="https://github.com/user-attachments/assets/a128d790-df3c-4edc-836c-a41bab7a59df" />
+
+
 ```
 data/                       one workbook per designer (Dragonaut9000, Jeriel, Suriya, ...)
 gene_names.xlsx             short and long name for every gene name used in the data files
