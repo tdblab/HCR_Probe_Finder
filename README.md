@@ -56,6 +56,8 @@ the form, edit `templates/make_submission_template.py` and run it.
    name (for example `data/Alex.xlsx`), and follows the instructions on its README sheet.
 2. Existing designers add rows to their own file in `data/`.
 3. New gene names get a row in `gene_names.xlsx` (short name, long name, other names).
+   Where the tubes are kept goes in the `Tube / location` column of `Probe_Sets` (for example `Freezer 1: Level 3`);
+   the viewer shows it on each set and offers a location menu.
 4. Save in Excel, then rebuild the viewer: `python build_viewer.py` (needs Python 3 and `openpyxl`).
 
 The build checks that every oligo carries the initiator of its set's amplifier and notes any set

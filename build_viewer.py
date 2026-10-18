@@ -37,7 +37,7 @@ h1{font-size:26px;line-height:1.1;margin:0;font-weight:700;letter-spacing:-.01em
 .controls{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;align-items:center}
 #q,#tq{flex:1 1 320px;min-width:220px;padding:10px 14px;border:1px solid var(--rule);border-radius:8px;background:var(--paper);font-size:16px}
 #q:focus,#tq:focus{background:#fff}
-select{padding:9px 10px;border:1px solid var(--rule);border-radius:8px;background:#fff}
+select{padding:9px 10px;border:1px solid var(--rule);border-radius:8px;background:#fff;max-width:260px}
 .ampf{display:flex;gap:6px;flex-wrap:wrap}
 .ampf button{border:1px solid var(--rule);background:#fff;border-radius:999px;padding:6px 11px;cursor:pointer;font-size:13px;display:flex;gap:6px;align-items:center}
 .ampf button[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:#fff}
@@ -166,9 +166,10 @@ td.num{color:var(--muted);width:2.5em}
     <button role="tab" data-tab="guide" aria-selected="false">How to use</button>
   </nav>
   <div class="controls" id="labControls">
-    <input id="q" type="search" placeholder="Search a gene by short or long name, protein name, LOC number or designer" aria-label="Search" autocomplete="off">
+    <input id="q" type="search" placeholder="Search a gene by short or long name, protein name, LOC number, designer or location" aria-label="Search" autocomplete="off">
     <select id="org" aria-label="Organism"></select>
     <select id="by" aria-label="Designed by"></select>
+    <select id="loc" aria-label="Location" hidden></select>
     <div class="ampf" id="ampf" role="group" aria-label="Amplifier"></div>
   </div>
   <div class="controls" id="txControls" hidden>
@@ -200,7 +201,7 @@ td.num{color:var(--muted);width:2.5em}
 <script>
 const D=/*__DATA__*/null;
 const AMPS=Object.keys(D.amps), COLOR={B1:'var(--b1)',B2:'var(--b2)',B3:'var(--b3)',B4:'var(--b4)',B5:'var(--b5)'};
-const st={q:'',org:'',by:'',amps:new Set(),gene:null,over:{},order:[]};
+const st={q:'',org:'',by:'',loc:'',amps:new Set(),gene:null,over:{},order:[]};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const em=t=>`<span class="dot" style="background:${COLOR[t]||'#999'}"></span>`;
@@ -209,12 +210,14 @@ $('stamp').textContent=`${D.genes.length} genes, ${nSets} probe sets, ${nPairs.t
 const orgs=[...new Set(Object.values(D.sets).map(s=>s.org))].sort();
 $('org').innerHTML='<option value="">All organisms</option>'+orgs.map(o=>`<option>${esc(o)}</option>`).join('');
 $('by').innerHTML='<option value="">Anyone</option>'+D.designers.map(o=>`<option>${esc(o)}</option>`).join('');
+const locs=[...new Set(Object.values(D.sets).map(s=>s.tube).filter(Boolean))].sort();
+if(locs.length){$('loc').innerHTML='<option value="">Any location</option>'+locs.map(o=>`<option>${esc(o)}</option>`).join('');$('loc').hidden=false;}
 $('ampf').innerHTML=AMPS.map(a=>`<button type="button" data-a="${a}" aria-pressed="false">${em(a)}${a} <span style="opacity:.7">${esc(D.amps[a].fl)}</span></button>`).join('');
 // search index per gene
 const hay={};
 for(const g of D.genes){
   const ss=g.sets.map(id=>D.sets[id]);
-  hay[g.k]=[g.label,g.long,g.aka.join(' '),g.names.join(' '),g.prot,g.loc,g.org,...ss.map(s=>[s.full,s.loc,s.gloc,s.names,s.by,s.sid,s.sub?s.sub.lab+' '+s.sub.inst:''].join(' '))].join(' ').toLowerCase();
+  hay[g.k]=[g.label,g.long,g.aka.join(' '),g.names.join(' '),g.prot,g.loc,g.org,...ss.map(s=>[s.full,s.loc,s.gloc,s.names,s.by,s.sid,s.tube,s.sub?s.sub.lab+' '+s.sub.inst:''].join(' '))].join(' ').toLowerCase();
 }
 function visibleGenes(){
   const toks=st.q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -222,6 +225,7 @@ function visibleGenes(){
     const ss=g.sets.map(id=>D.sets[id]);
     if(st.org&&g.org!==st.org)return false;
     if(st.by&&!ss.some(s=>s.by===st.by))return false;
+    if(st.loc&&!ss.some(s=>s.tube===st.loc))return false;
     if(st.amps.size&&!ss.some(s=>st.amps.has(s.amp)))return false;
     return toks.every(t=>hay[g.k].includes(t));
   });
@@ -257,7 +261,7 @@ function build(s,amp){
 function subFacts(s){const u=s.sub,f=(k,v)=>v?`<div><span>${k}</span> ${esc(v)}</div>`:'';
   return `<div class="facts">${f('Designed by',s.by)}${f('Lab',[u.lab,u.inst].filter(Boolean).join(', '))}${f('Set',s.sid)}${f('Submitted',u.date)}
     ${f('Gene ID / LOC',s.loc)}${f('Did it work?',s.status)}${f('Tested in',u.tissue)}${f('Binds',u.region)}${f('Transcript',u.tx)}
-    ${f('Designed with',u.method)}${f('Ordered',[u.odate,u.vendor].filter(Boolean).join(', '))}</div>`;}
+    ${f('Designed with',u.method)}${f('Ordered',[u.odate,u.vendor].filter(Boolean).join(', '))}${f('Location',s.tube)}</div>`;}
 function renderDetail(){
   const g=D.genes.find(x=>x.k===st.gene);
   if(!g){$('detail').innerHTML=`<div class="empty"><h2>Find a probe set</h2><p><a href="#guide">First time here? See How to use.</a></p><p>Search for a gene by its name, the protein name, or its LOC number. Each gene lists every probe set made for it, who designed it, which amplifier it carries, and the full oligo sequences.</p><p>Add sets to an order to download an oPool sheet. A set can be ordered on a different amplifier: the binding arms stay the same and only the initiator changes.</p></div>`;return;}
@@ -276,7 +280,7 @@ function renderDetail(){
       ${amp!==s.amp?`<div class="retarget">Showing the ${amp} version: same binding arms as the designed ${s.amp} set, with the ${amp} initiator. This version has not been ordered before.</div>`:''}
       ${s.sub?subFacts(s):`<div class="facts"><div><span>Designed by</span> ${esc(s.by)}</div><div><span>Set</span> ${esc(s.sid)}</div>
         <div><span>Genome match</span> ${esc(gv)}</div><div><span>LOC</span> ${esc(s.loc||s.gloc||'none recorded')}</div>
-        ${s.status?`<div><span>Status</span> ${esc(s.status)}</div>`:''}${s.tube?`<div><span>Tube</span> ${esc(s.tube)}</div>`:''}</div>`}
+        ${s.status?`<div><span>Status</span> ${esc(s.status)}</div>`:''}${s.tube?`<div><span>Location</span> ${esc(s.tube)}</div>`:''}</div>`}
       ${s.notes?`<div class="facts" style="grid-template-columns:1fr"><div><span>Notes</span> ${esc(s.notes)}</div></div>`:''}
       ${s.check?`<div class="note">${esc(s.check)}</div>`:''}
       <table><thead><tr><th>#</th><th>P1</th><th>P2</th>${s.sub?'':'<th>Genome</th>'}</tr></thead><tbody>
@@ -311,6 +315,7 @@ function render(){renderList();renderDetail();renderTray();document.body.classLi
 $('q').addEventListener('input',e=>{st.q=e.target.value;renderList();});
 $('org').addEventListener('change',e=>{st.org=e.target.value;renderList();});
 $('by').addEventListener('change',e=>{st.by=e.target.value;renderList();});
+$('loc').addEventListener('change',e=>{st.loc=e.target.value;renderList();});
 $('ampf').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const a=b.dataset.a;st.amps.has(a)?st.amps.delete(a):st.amps.add(a);b.setAttribute('aria-pressed',st.amps.has(a));renderList();});
 $('genes').addEventListener('click',e=>{const b=e.target.closest('.g');if(!b)return;location.hash=encodeURIComponent(b.dataset.k);});
 $('detail').addEventListener('change',e=>{const id=e.target.dataset.over;if(id){st.over[id]=e.target.value;renderDetail();}});
@@ -488,6 +493,7 @@ function renderGuide(){
     <div><b>Enough pairs</b>Fewer than 5 pairs may give a weak signal.</div>
     <div><b>Designed sets are untested</b>Lab sets have been made by lab members; designed sets come straight from the computer.</div>
     <div><b>Hairpin sequences</b>All 20 amplifiers are on the Amplifiers &amp; hairpins tab.</div>
+    <div><b>Finding the tubes</b>Each lab set shows where it is stored. Use the location menu to list everything in one place.</div>
     <div><b>CDS or UTRs</b>Designs sit in the CDS by default. For species with full transcripts, tick 5′UTR or 3′UTR to add pairs there.</div></div></section>
    <section class="step"><h3><span class="k">7</span>Share your own probes</h3>
     <ol class="caps"><li>Open <a href="#submit">Submit your probes</a></li><li>Download the form</li><li>Fill it in</li><li>Email it</li></ol></section>
@@ -645,14 +651,17 @@ for date, base, who, info, gs, ps in subs:
     used_prefix[pre] = who
     if who not in designers: designers.append(who)
     genes_in = {}
+    hdr = {re.sub(r'\s*\*$', '', s(gs.cell(5, j).value)).lower(): j for j in range(1, 40) if s(gs.cell(5, j).value)}
+    def col(r, name): j = hdr.get(name); return gs.cell(r, j).value if j else None
     for r in range(6, 6 + 30):
-        num = gs.cell(r, 1).value; short = s(gs.cell(r, 2).value)
+        num = col(r, 'gene #'); short = s(col(r, 'gene short name'))
         if not short: continue
         genes_in[int(num) if isinstance(num, (int, float)) else r - 5] = dict(
-            short=short, long=s(gs.cell(r, 3).value), org=re.sub(r'^Other:.*$', '', s(gs.cell(r, 4).value)) or 'Not stated',
-            loc=gene_key(gs.cell(r, 5).value), tx=s(gs.cell(r, 6).value), amp=s(gs.cell(r, 7).value).upper(),
-            dye=s(gs.cell(r, 8).value), region=s(gs.cell(r, 9).value), method=s(gs.cell(r, 10).value), works=s(gs.cell(r, 11).value),
-            tissue=s(gs.cell(r, 12).value), odate=as_date(gs.cell(r, 13).value), vendor=s(gs.cell(r, 14).value), notes=s(gs.cell(r, 15).value))
+            short=short, long=s(col(r, 'gene long name')), org=re.sub(r'^Other:.*$', '', s(col(r, 'species'))) or 'Not stated',
+            loc=gene_key(col(r, 'gene id or loc')), tx=s(col(r, 'transcript targeted')), amp=s(col(r, 'amplifier')).upper(),
+            dye=s(col(r, 'dye you used')), region=s(col(r, 'where the probes bind')), method=s(col(r, 'how you designed them')),
+            works=s(col(r, 'did it work?')), tissue=s(col(r, 'tissue / stage tested')), odate=as_date(col(r, 'order date')),
+            vendor=s(col(r, 'vendor / order id')), store=s(col(r, 'where the tubes are stored')), notes=s(col(r, 'notes')))
     pairs = defaultdict(list); problems = []
     for r in range(5, ps.max_row + 1):
         gn, q1, q2 = ps.cell(r, 1).value, clean_seq(ps.cell(r, 4).value), clean_seq(ps.cell(r, 5).value)
@@ -687,7 +696,7 @@ for date, base, who, info, gs, ps in subs:
         x = dict(id=f'{who}:{sid}', sid=sid, by=who, file='user_submit/' + base, gene=g['short'], full=g['long'] or long_,
                  org=g['org'], loc=g['loc'], gloc='', short=g['short'], long=g['long'] or long_, aka=aka, amp=amp,
                  fl=g['dye'] if g['dye'] and not g['dye'].startswith('Other') else amps[amp]['fl'], gv=None, checked=False, weak=False,
-                 gname='', names=g['short'], check=' '.join(note), status=g['works'], tube='', notes=g['notes'], p=P,
+                 gname='', names=g['short'], check=' '.join(note), status=g['works'], tube=g['store'], notes=g['notes'], p=P,
                  sub=dict(lab=s(info.get('Lab / PI')), inst=s(info.get('Institution')), date=date, tx=g['tx'], region=g['region'],
                           method=g['method'], tissue=g['tissue'], odate=g['odate'], vendor=g['vendor']))
         S.append(x); n_sub += 1

@@ -58,7 +58,7 @@ for i in range(max(len(AMPS), len(SPECIES), MAXG)):
             REGION[i] if i < len(REGION) else None, METHOD[i] if i < len(METHOD) else None,
             RESULT[i] if i < len(RESULT) else None, i + 1 if i < MAXG else None]
     L.append(row)
-L['O1'] = 'template'; L['O2'] = 'HCR probe submission v1'          # lets the build recognize this form
+L['O1'] = 'template'; L['O2'] = 'HCR probe submission v2'          # lets the build recognize this form
 L.sheet_state = 'hidden'
 def lst(col, n): return f"Lists!${col}$2:${col}${n + 1}"
 for name, ref in [('AmpList', lst('A', 5)), ('SpeciesList', lst('H', len(SPECIES))), ('DyeList', lst('I', len(DYES))),
@@ -149,6 +149,7 @@ cols = [  # header, width, required, hint, list, strict list
     ('Tissue / stage tested', 22, False, 'e.g. 5th instar wing disc', None, True),
     ('Order date', 13, False, 'e.g. 2026-09-01', None, True),
     ('Vendor / order ID', 18, False, 'e.g. IDT oPool + order no.', None, True),
+    ('Where the tubes are stored', 22, False, 'e.g. Freezer 1: Level 3', None, True),
     ('Notes', 30, False, 'anything else useful', None, True),
     ('Pairs entered', 10, None, 'counted for you', None, True),
     ('Row check', 30, None, 'filled in for you', None, True)]
@@ -176,21 +177,21 @@ for i in range(MAXG):
     for j in range(1, len(cols) + 1):
         c = S.cell(r, j); c.border = box
         c.font = f_bigb if j == 1 else f_norm
-        if 2 <= j <= 15: c.protection = OPEN
+        if 2 <= j <= 16: c.protection = OPEN
         c.alignment = wrap if j > 1 else center
     S.cell(r, 13).number_format = 'yyyy-mm-dd'
-    S.cell(r, 16, f"=IF(B{r}=\"\",\"\",COUNTIF('3 Probes'!$A${P0}:$A${P0 + MAXP - 1},A{r}))").alignment = center
+    S.cell(r, 17, f"=IF(B{r}=\"\",\"\",COUNTIF('3 Probes'!$A${P0}:$A${P0 + MAXP - 1},A{r}))").alignment = center
     need = '&'.join(f'IF({c}{r}="","{lab}, ","")' for c, lab in
                     [('B', 'short name'), ('C', 'long name'), ('D', 'species'), ('E', 'Gene ID'), ('G', 'amplifier'), ('K', 'did it work')])
-    S.cell(r, 17, f'=IF(A{r}>$D$3,"",IF(({need})<>"","Missing: "&LEFT({need},LEN({need})-2),'
-                  f'IF(P{r}=0,"No pairs yet in 3 Probes","Ready ✓")))')
-    S.cell(r, 16).fill = fill(SOFT); S.cell(r, 17).fill = fill(SOFT)
+    S.cell(r, 18, f'=IF(A{r}>$D$3,"",IF(({need})<>"","Missing: "&LEFT({need},LEN({need})-2),'
+                  f'IF(Q{r}=0,"No pairs yet in 3 Probes","Ready ✓")))')
+    S.cell(r, 17).fill = fill(SOFT); S.cell(r, 18).fill = fill(SOFT)
 # gray out rows past the number of genes; yellow for required cells still empty
-S.conditional_formatting.add(f'A{G0}:Q{last}', FormulaRule(formula=[f'$A{G0}>$D$3'], fill=fill(GRAY), font=Font(color='9AA3AD'), stopIfTrue=True))
+S.conditional_formatting.add(f'A{G0}:R{last}', FormulaRule(formula=[f'$A{G0}>$D$3'], fill=fill(GRAY), font=Font(color='9AA3AD'), stopIfTrue=True))
 for c in 'BCDEGK':
     S.conditional_formatting.add(f'{c}{G0}:{c}{last}', FormulaRule(formula=[f'AND($A{G0}<=$D$3,{c}{G0}="")'], fill=fill(YEL)))
-S.conditional_formatting.add(f'Q{G0}:Q{last}', FormulaRule(formula=[f'LEFT(Q{G0},5)="Ready"'], fill=fill(GREEN)))
-S.conditional_formatting.add(f'Q{G0}:Q{last}', FormulaRule(formula=[f'AND(Q{G0}<>"",LEFT(Q{G0},5)<>"Ready")'], fill=fill(ORANGE)))
+S.conditional_formatting.add(f'R{G0}:R{last}', FormulaRule(formula=[f'LEFT(R{G0},5)="Ready"'], fill=fill(GREEN)))
+S.conditional_formatting.add(f'R{G0}:R{last}', FormulaRule(formula=[f'AND(R{G0}<>"",LEFT(R{G0},5)<>"Ready")'], fill=fill(ORANGE)))
 S.freeze_panes = 'C6'
 S.protection.sheet = True; S.protection.formatColumns = False; S.protection.formatRows = False
 
