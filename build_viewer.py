@@ -67,7 +67,7 @@ main{flex:1;display:grid;grid-template-columns:minmax(260px,340px) 1fr;min-heigh
 .facts div span{color:var(--muted)}
 .note{margin-top:10px;padding:8px 12px;background:var(--warnbg);color:var(--warn);border-radius:6px;font-size:14px;max-width:90ch}
 .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.btn{border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:14px}
+.btn{text-decoration:none;display:inline-block;border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:14px}
 .btn.ghost{background:#fff;color:var(--ink);border-color:var(--rule)}
 .btn:disabled{opacity:.45;cursor:default}
 label.sw{font-size:14px;color:var(--muted);display:flex;gap:6px;align-items:center}
@@ -101,6 +101,7 @@ td.num{color:var(--muted);width:2.5em}
 .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink);font-weight:600}
 [hidden]{display:none!important}
 .iso{width:auto;min-width:60%}
+.isowrap{max-width:100%;overflow-x:auto}
 .iso td,.iso th{white-space:nowrap}
 .iso td.u{white-space:normal;color:var(--muted);font-size:12px;max-width:420px}
 .opts{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin:14px 0 4px;font-size:14px}
@@ -110,7 +111,15 @@ td.num{color:var(--muted);width:2.5em}
 .amp-table td{vertical-align:top}
 .amp-table .seq{font-size:12px}
 .copy{border:1px solid var(--rule);background:#fff;border-radius:6px;padding:1px 7px;font-size:12px;cursor:pointer;margin-left:6px}
-#ampView,#guideView{display:block;overflow:auto;padding:24px 32px 120px}
+#ampView,#guideView,#submitView{display:block;overflow:auto;padding:24px 32px 120px}
+.dl{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-size:16px;padding:11px 18px;margin-top:4px}
+.mock{width:auto;font-size:13px;margin-top:4px;background:#fff;border:1px solid var(--rule)}
+.mock th{background:var(--ink);color:#fff;font-weight:600}
+.mock td{border:1px solid var(--rule)}
+.mock td.y{background:#FFF3B0}.mock td.gr{background:#E6E8EB;color:#9AA3AD}.mock td.ok{background:#DDF2E4}
+.mailbox{margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.mailbox .addr{font:600 18px var(--mono);background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:8px 12px}
+@media (max-width:820px){#ampView,#guideView,#submitView{padding:18px 18px 120px}}
 .guide{max-width:1100px;margin:0 auto}
 .guide h2{font-size:28px;margin:0 0 4px}
 .guide .lead{color:var(--muted);margin:0 0 8px;font-size:16px}
@@ -136,6 +145,9 @@ td.num{color:var(--muted);width:2.5em}
   #detail{padding:18px 18px 140px}
   header{padding:16px 18px 12px}
   .gh h2{font-size:24px}
+  .tabs{flex-wrap:wrap;gap:0 2px}
+  .tabs button{padding:7px 9px;font-size:14px}
+  select{max-width:100%}
 }
 @media (prefers-reduced-motion:no-preference){ .g,.btn{transition:background-color .12s} }
 </style>
@@ -149,6 +161,7 @@ td.num{color:var(--muted);width:2.5em}
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="lab" aria-selected="true">Lab probe sets</button>
     <button role="tab" data-tab="tx" aria-selected="false">Design from transcriptome</button>
+    <button role="tab" data-tab="submit" aria-selected="false">Submit your probes</button>
     <button role="tab" data-tab="amp" aria-selected="false">Amplifiers &amp; hairpins</button>
     <button role="tab" data-tab="guide" aria-selected="false">How to use</button>
   </nav>
@@ -173,6 +186,7 @@ td.num{color:var(--muted);width:2.5em}
 </main>
 <section id="ampView" hidden></section>
 <section id="guideView" hidden></section>
+<section id="submitView" hidden></section>
 <div id="tray" role="region" aria-label="Order">
   <strong>Order</strong>
   <div class="items" id="trayItems"></div>
@@ -200,7 +214,7 @@ $('ampf').innerHTML=AMPS.map(a=>`<button type="button" data-a="${a}" aria-presse
 const hay={};
 for(const g of D.genes){
   const ss=g.sets.map(id=>D.sets[id]);
-  hay[g.k]=[g.label,g.long,g.aka.join(' '),g.names.join(' '),g.prot,g.loc,g.org,...ss.map(s=>[s.full,s.loc,s.gloc,s.names,s.by,s.sid].join(' '))].join(' ').toLowerCase();
+  hay[g.k]=[g.label,g.long,g.aka.join(' '),g.names.join(' '),g.prot,g.loc,g.org,...ss.map(s=>[s.full,s.loc,s.gloc,s.names,s.by,s.sid,s.sub?s.sub.lab+' '+s.sub.inst:''].join(' '))].join(' ').toLowerCase();
 }
 function visibleGenes(){
   const toks=st.q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -240,12 +254,16 @@ function build(s,amp){
             q1:a1?A.p1+A.s1+a1:'',q2:a2?a2+A.s2+A.p2:''};
   });
 }
+function subFacts(s){const u=s.sub,f=(k,v)=>v?`<div><span>${k}</span> ${esc(v)}</div>`:'';
+  return `<div class="facts">${f('Designed by',s.by)}${f('Lab',[u.lab,u.inst].filter(Boolean).join(', '))}${f('Set',s.sid)}${f('Submitted',u.date)}
+    ${f('Gene ID / LOC',s.loc)}${f('Did it work?',s.status)}${f('Tested in',u.tissue)}${f('Binds',u.region)}${f('Transcript',u.tx)}
+    ${f('Designed with',u.method)}${f('Ordered',[u.odate,u.vendor].filter(Boolean).join(', '))}</div>`;}
 function renderDetail(){
   const g=D.genes.find(x=>x.k===st.gene);
   if(!g){$('detail').innerHTML=`<div class="empty"><h2>Find a probe set</h2><p><a href="#guide">First time here? See How to use.</a></p><p>Search for a gene by its name, the protein name, or its LOC number. Each gene lists every probe set made for it, who designed it, which amplifier it carries, and the full oligo sequences.</p><p>Add sets to an order to download an oPool sheet. A set can be ordered on a different amplifier: the binding arms stay the same and only the initiator changes.</p></div>`;return;}
   const ss=g.sets.map(id=>D.sets[id]).sort((a,b)=>a.amp.localeCompare(b.amp)||a.by.localeCompare(b.by));
   let h=`<button class="btn ghost back" id="back">Back to genes</button>
-    <div class="gh"><h2>${esc(g.label)}${g.long?` <span class="lng">${esc(g.long)}</span>`:''}</h2>${g.aka.length?`<div class="sub">Also known as ${esc(g.aka.join(', '))}</div>`:''}<div class="sub">NCBI: ${esc(g.prot||'no annotated protein')}${g.loc?` <span>(${esc(g.loc)})</span>`:''}. ${esc(g.org)}</div>
+    <div class="gh"><h2>${esc(g.label)}${g.long?` <span class="lng">${esc(g.long)}</span>`:''}</h2>${g.aka.length?`<div class="sub">Also known as ${esc(g.aka.join(', '))}</div>`:''}<div class="sub">${ss.every(x=>x.sub)?`${g.loc?esc(g.loc)+'. ':''}${esc(g.org)}`:`NCBI: ${esc(g.prot||'no annotated protein')}${g.loc?` <span>(${esc(g.loc)})</span>`:''}. ${esc(g.org)}`}</div>
     ${g.names.length>1?`<div class="alias">Sets for this locus are named ${g.names.map(n=>`<b>${esc(n)}</b>`).join(', ')}.</div>`:''}</div>`;
   for(const s of ss){
     const amp=st.over[s.id]||s.amp, P=build(s,amp), inOrder=st.order.some(o=>o.id===s.id);
@@ -256,16 +274,16 @@ function renderDetail(){
         <button class="btn ghost" data-copy="${s.id}">Copy sequences</button>
         <button class="btn" data-add="${s.id}" ${inOrder?'disabled':''}>${inOrder?'In order':'Add to order'}</button></div></div>
       ${amp!==s.amp?`<div class="retarget">Showing the ${amp} version: same binding arms as the designed ${s.amp} set, with the ${amp} initiator. This version has not been ordered before.</div>`:''}
-      <div class="facts"><div><span>Designed by</span> ${esc(s.by)}</div><div><span>Set</span> ${esc(s.sid)}</div>
+      ${s.sub?subFacts(s):`<div class="facts"><div><span>Designed by</span> ${esc(s.by)}</div><div><span>Set</span> ${esc(s.sid)}</div>
         <div><span>Genome match</span> ${esc(gv)}</div><div><span>LOC</span> ${esc(s.loc||s.gloc||'none recorded')}</div>
-        ${s.status?`<div><span>Status</span> ${esc(s.status)}</div>`:''}${s.tube?`<div><span>Tube</span> ${esc(s.tube)}</div>`:''}</div>
+        ${s.status?`<div><span>Status</span> ${esc(s.status)}</div>`:''}${s.tube?`<div><span>Tube</span> ${esc(s.tube)}</div>`:''}</div>`}
       ${s.notes?`<div class="facts" style="grid-template-columns:1fr"><div><span>Notes</span> ${esc(s.notes)}</div></div>`:''}
       ${s.check?`<div class="note">${esc(s.check)}</div>`:''}
-      <table><thead><tr><th>#</th><th>P1</th><th>P2</th><th>Genome</th></tr></thead><tbody>
+      <table><thead><tr><th>#</th><th>P1</th><th>P2</th>${s.sub?'':'<th>Genome</th>'}</tr></thead><tbody>
       ${P.map((r,i)=>{const raw=s.p[i];const gm=raw[7];return `<tr><td class="num">${esc(r.n)}</td>
         <td>${r.q1?`<div class="oname">${esc(r.n1)}</div>${oligo(r.q1,amp,'P1')}`:'<span class="flag">missing</span>'}</td>
         <td>${r.q2?`<div class="oname">${esc(r.n2)}</div>${oligo(r.q2,amp,'P2')}`:'<span class="flag">missing</span>'}${raw[8]?`<div class="flag">${esc(raw[8])}</div>`:''}</td>
-        <td class="gm ${gm==='Both halves'?'ok':(gm?'no':'')}">${esc(gm==='Both halves'?'both halves':gm==='None'?'no match':gm)}</td></tr>`}).join('')}
+        ${s.sub?'':`<td class="gm ${gm==='Both halves'?'ok':(gm?'no':'')}">${esc(gm==='Both halves'?'both halves':gm==='None'?'no match':gm)}</td>`}</tr>`}).join('')}
       </tbody></table></article>`;
   }
   h+=`<div class="legend"><span><span class="seq" style="--c:var(--ink)"><span class="i">initiator half</span></span> in the amplifier color</span><span><span class="seq"><span class="s">spacer</span></span></span><span><span class="seq">binding arm</span> in black</span></div>`;
@@ -312,21 +330,25 @@ $('dlHair').addEventListener('click',()=>{const seen=new Map();for(const o of st
   download(($('pool').value||'pool')+'_hairpins.csv','Name,Sequence,Amplifier,Hairpin,Fluorophore,Dye position\n'+rows.map(r=>r.map(csv).join(',')).join('\n'));});
 $('dlList').addEventListener('click',()=>{const p=$('pool').value||'pool';download(p+'_oligos.csv','Name,Sequence,Set_ID,Gene,Amplifier\n'+orderRows().map(r=>r.map(csv).join(',')).join('\n'));});
 function showTab(tab){for(const b of document.querySelectorAll('.tabs button'))b.setAttribute('aria-selected',b.dataset.tab===tab);
-  $('labView').hidden=tab!=='lab';$('labControls').hidden=tab!=='lab';$('txView').hidden=tab!=='tx';$('txControls').hidden=tab!=='tx';$('ampView').hidden=tab!=='amp';$('guideView').hidden=tab!=='guide';
+  $('labView').hidden=tab!=='lab';$('labControls').hidden=tab!=='lab';$('txView').hidden=tab!=='tx';$('txControls').hidden=tab!=='tx';$('ampView').hidden=tab!=='amp';$('guideView').hidden=tab!=='guide';$('submitView').hidden=tab!=='submit';
   document.body.classList.toggle('showing',tab==='lab'?!!st.gene:tab==='tx'?!!TX.gene:false);}
 function fromHash(){const h=decodeURIComponent(location.hash.slice(1));
   if(h==='amps'){showTab('amp');renderAmps();return}
   if(h==='guide'){showTab('guide');renderGuide();return}
+  if(h==='submit'){showTab('submit');renderSubmit();return}
   if(h==='tx'||h.startsWith('tx/')){const [,sp,sym]=h.split('/');showTab('tx');txOpen(sp||TX.sp,sym||null);return}
   st.gene=D.genes.some(g=>g.k===h)?h:null;showTab('lab');render();if(st.gene)$('detail').scrollTop=0;}
 document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
-  location.hash=b.dataset.tab==='guide'?'guide':b.dataset.tab==='amp'?'amps':b.dataset.tab==='tx'?('tx/'+TX.sp):'';if(b.dataset.tab==='lab'&&!location.hash){st.gene=null;fromHash()}});
+  location.hash=b.dataset.tab==='guide'?'guide':b.dataset.tab==='submit'?'submit':b.dataset.tab==='amp'?'amps':b.dataset.tab==='tx'?('tx/'+TX.sp):'';if(b.dataset.tab==='lab'&&!location.hash){st.gene=null;fromHash()}});
 // ---------- transcriptome-wide designs (loaded on demand from tx/<species>/) ----------
-const TX={sp:(D.tx[0]||{}).id||'bany',idx:{},shards:{},gene:null,sel:{},mode:{},n:{},amp:{},fl:{},hay:{}};
+const TX={sp:(D.tx[0]||{}).id||'bany',idx:{},shards:{},gene:null,sel:{},mode:{},n:{},amp:{},fl:{},hay:{},parts:{}};
+const PART={1:"5′UTR",2:'CDS',4:"3′UTR"};
+const partTxt=m=>[1,2,4].filter(b=>m&b).map(b=>PART[b]).join(' + ');
+const span=(a,e)=>e>a?`${(a+1).toLocaleString()}–${e.toLocaleString()}`:'none';
 const DESIGN_AMPS=['B1','B2','B3'], FLUORS=['AF488','AF546','AF647'];
 const loaded={};
 function loadScript(src){if(loaded[src])return loaded[src];return loaded[src]=new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>{delete loaded[src];no(new Error(src))};document.head.appendChild(s);});}
-window.HCRTX_INDEX=(sp,obj)=>{TX.idx[sp]=obj;TX.hay[sp]=obj.g.map(g=>[g[0],g[1],g[2],g[7],g[8]].join(' ').toLowerCase());};
+window.HCRTX_INDEX=(sp,obj)=>{TX.idx[sp]=obj;TX.hay[sp]=obj.g.map(g=>[g[0],g[1],g[2],g[7],g[8],g[10]||''].join(' ').toLowerCase());};
 window.HCRTX_SHARD=(sp,n,data)=>{(TX.shards[sp]=TX.shards[sp]||{})[n]=data;};
 const spName=sp=>(D.tx.find(x=>x.id===sp)||{}).name||sp;
 $('tsp').innerHTML=D.tx.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
@@ -341,11 +363,12 @@ function txList(){
   const I=TX.idx[TX.sp];if(!I)return;const toks=$('tq').value.toLowerCase().split(/\s+/).filter(Boolean);const H=TX.hay[TX.sp];
   let hits=[];for(let i=0;i<I.g.length;i++){if(toks.every(t=>H[i].includes(t)))hits.push(i);}
   const q=$('tq').value.toLowerCase().trim();
-  hits.sort((a,b)=>(I.g[b][0].toLowerCase()===q)-(I.g[a][0].toLowerCase()===q)||(I.g[b][7].toLowerCase().split(', ').includes(q))-(I.g[a][7].toLowerCase().split(', ').includes(q))||I.g[a][0].localeCompare(I.g[b][0]));
+  const rank=g=>g[0].toLowerCase()===q?0:(g[7]||'').toLowerCase().split(', ').includes(q)?1:(g[2]||'').toLowerCase()===q?2:(g[11]||'').toLowerCase().split(', ').includes(q)?3:4;
+  hits.sort((a,b)=>rank(I.g[a])-rank(I.g[b])||I.g[a][0].localeCompare(I.g[b][0]));
   $('tcount').textContent=toks.length?`${hits.length.toLocaleString()} of ${I.g.length.toLocaleString()} genes${hits.length>300?', showing 300':''}`:`${I.g.length.toLocaleString()} genes. Type to search`;
   const show=toks.length?hits.slice(0,300):[];
   $('tgenes').innerHTML=show.map(i=>{const g=I.g[i];return `<button class="g" data-sym="${esc(g[0])}" aria-current="${g[0]===TX.gene}"><div class="n">${esc(g[0])}${g[7]&&g[7]!==g[0]?` <span class="ln">${esc(g[7])}</span>`:''}</div>
-    <div class="m"><span>${esc(g[2])}</span></div><div class="m"><span>${g[6]} pairs</span><span>${g[5]} isoform${g[5]>1?'s':''}</span>${g[9]?`<span>lab has ${g[9]} set${g[9]>1?'s':''}</span>`:''}</div></button>`}).join('');
+    <div class="m"><span>${esc(g[2])}</span></div><div class="m"><span>${g[12]!==undefined?`${g[6]} CDS + ${g[12]} UTR pairs`:`${g[6]} pairs`}</span><span>${g[5]} isoform${g[5]>1?'s':''}</span>${g[9]?`<span>lab has ${g[9]} set${g[9]>1?'s':''}</span>`:''}</div></button>`}).join('');
 }
 async function txGene(sym){const I=TX.idx[TX.sp];const g=I.g.find(x=>x[0]===sym);if(!g)return null;
   if(!(TX.shards[TX.sp]||{})[g[3]])await loadScript(`tx/${TX.sp}/s${String(g[3]).padStart(4,'0')}.js`);
@@ -353,11 +376,12 @@ async function txGene(sym){const I=TX.idx[TX.sp];const g=I.g.find(x=>x[0]===sym)
 function txPairs(key,d){
   const n=d.iso.length,all=(1n<<BigInt(n))-1n;
   const sel=TX.sel[key]||all, mode=TX.mode[key]||'every';
-  const f=d.p.filter(p=>{const m=BigInt('0x'+p[2]);return (m&sel)===sel&&(mode!=='only'||(m&~sel&all)===0n)});
+  const parts=TX.parts[key]||2;
+  const f=d.p.filter(p=>{const m=BigInt('0x'+p[2]);return (m&sel)===sel&&(mode!=='only'||(m&~sel&all)===0n)&&((p[5]??2)&~parts)===0});
   f.sort((a,b)=>b[1]-a[1]);return f;}
 async function txDetail(){
   const box=$('tdetail');const I=TX.idx[TX.sp];
-  if(!TX.gene){box.innerHTML=`<div class="empty"><h2>Design probes for any gene</h2><p>Every gene in the ${esc(spName(TX.sp))} CDS (${I?I.meta.genes.toLocaleString():''} genes, assembly ${esc(I?I.meta.assembly:'')}) has pre-computed probe pairs. Search for a gene, choose the isoforms to target, how many pairs, the amplifier and the fluorophore, then add the set to an order.</p><p class="hint">${esc(I?I.meta.rules:'')} These designs are computational and have not been tested; sets made by lab members are on the Lab probe sets tab.</p></div>`;return}
+  if(!TX.gene){box.innerHTML=`<div class="empty"><h2>Design probes for any gene</h2><p>Every protein-coding gene in ${esc(spName(TX.sp))} (${I?I.meta.genes.toLocaleString():''} genes, assembly ${esc(I?I.meta.assembly:'')}) has pre-computed probe pairs. Search for a gene, choose the isoforms to target, ${I&&I.meta.utr?'where on the transcript the probes may sit (CDS by default, 5′UTR and 3′UTR on request), ':''}how many pairs, the amplifier and the fluorophore, then add the set to an order.</p><p class="hint">${esc(I?I.meta.rules:'')} These designs are computational and have not been tested; sets made by lab members are on the Lab probe sets tab.</p></div>`;return}
   const r=await txGene(TX.gene);if(!r){box.innerHTML='<div class="empty"><h2>Gene not found</h2></div>';return}
   const {row,d}=r,key=TX.sp+'|'+d.s,n=d.iso.length,all=(1n<<BigInt(n))-1n,sel=TX.sel[key]||all,mode=TX.mode[key]||'every';
   const P=txPairs(key,d),N=Math.min(TX.n[key]||20,P.length),amp=TX.amp[key]||'B1',fl=TX.fl[key]||D.amps[amp].fl;
@@ -366,36 +390,43 @@ async function txDetail(){
   const rows=pick.map((p,i)=>{const t=unpack(p[0]);const nn=String(i+1).padStart(2,'0');return {nn,t,q1:A.p1+A.s1+rcomp(t.slice(0,25)),q2:rcomp(t.slice(27))+A.s2+A.p2,n1:`${sym}_${amp}_P1_${nn}`,n2:`${sym}_${amp}_P2_${nn}`,p}});
   TX.cur={key,gene:label,amp,fl,rows};
   const labKey=D.genes.find(g=>g.k===(TX.sp==='bany'?d.s:'GeneID:'+d.id));
-  const isoLab=i=>d.iso[i][1]?'isoform '+d.iso[i][1]:d.iso[i][0];
-  const covTxt=p=>{const m=BigInt('0x'+p[2]);if(m===all)return n>1?'all isoforms':'';const l=[];for(let i=0;i<n;i++)if(m>>BigInt(i)&1n)l.push(d.iso[i][1]||d.iso[i][0]);return l.join(', ')};
+  const isoLab=i=>I.meta.utr?d.iso[i][5]:d.iso[i][1]?'isoform '+d.iso[i][1]:d.iso[i][0];
+  const covTxt=p=>{const m=BigInt('0x'+p[2]);if(m===all)return n>1?'all isoforms':'';const l=[];for(let i=0;i<n;i++)if(m>>BigInt(i)&1n)l.push(I.meta.utr?d.iso[i][5]:d.iso[i][1]||d.iso[i][0]);return l.join(', ')};
   let h=`<button class="btn ghost back" id="tback">Back to genes</button>
    <div class="gh"><h2>${esc(d.s)}${row[7]&&row[7]!==d.s?` <span class="lng">${esc(row[7])}</span>`:''}</h2>
    ${row[8]?`<div class="sub">${esc(row[8])}</div>`:''}<div class="sub">NCBI: ${esc(d.n)} (${esc(d.s.startsWith('LOC')?d.s:'GeneID:'+d.id)}). ${esc(spName(TX.sp))}</div>
+   ${row[11]?`<div class="sub">Also known as ${esc(row[11])}</div>`:''}
    ${labKey?`<div class="alias">The lab already has probe sets for this gene: <a href="#${encodeURIComponent(labKey.k)}">open on the Lab probe sets tab</a>.</div>`:''}</div>`;
-  if(!d.p.length){box.innerHTML=h+`<div class="note">No gene-specific pairs could be designed. Almost all of this CDS is shared with other genes (for example transposon-derived or multi-copy genes), so any probe would also bind them.</div>`;return}
-  if(n>1){h+=`<h3 style="margin-top:22px">Isoforms</h3><table class="iso"><thead><tr><th>Target</th><th>Isoform</th><th>Protein</th><th>CDS length</th><th>Unique to this isoform (nt)</th></tr></thead><tbody>`+
-    d.iso.map((x,i)=>{const u=(d.u[i]||[]);return `<tr><td><input type="checkbox" data-iso="${i}" ${(sel>>BigInt(i))&1n?'checked':''} aria-label="Target ${esc(isoLab(i))}"></td><td>${esc(x[1]?'X'+x[1].replace(/^X/,''):'')}</td><td>${esc(x[0])}${x[3].length?` <span class="oname">same CDS as ${esc(x[3].join(', '))}</span>`:''}${x[4]?' <span class="flag">partial</span>':''}</td><td>${x[2].toLocaleString()} nt</td>
-      <td class="u">${u.length?u.slice(0,6).map(v=>`${v[0]+1}–${v[1]}`).join(', ')+(u.length>6?` and ${u.length-6} more`:''):'none'}</td></tr>`}).join('')+`</tbody></table>
+  if(!d.p.length){box.innerHTML=h+`<div class="note">No gene-specific pairs could be designed. Almost all of this gene's sequence is shared with other genes (for example transposon-derived or multi-copy genes), so any probe would also bind them.</div>`;return}
+  const utr=!!I.meta.utr, uTxt=v=>`${v[2]!==undefined&&utr?partTxt(v[2])+' ':''}${(v[0]+1).toLocaleString()}–${v[1].toLocaleString()}`;
+  if(n>1||utr){h+=`<h3 style="margin-top:22px">Isoforms</h3><div class="isowrap"><table class="iso"><thead><tr>${n>1?'<th>Target</th>':''}<th>Isoform</th>${utr?'<th>Transcript</th>':''}<th>Protein</th><th>${utr?'Length':'CDS length'}</th>${utr?'<th>5′UTR</th><th>CDS</th><th>3′UTR</th>':''}${n>1?'<th>Unique to this isoform (nt)</th>':''}</tr></thead><tbody>`+
+    d.iso.map((x,i)=>{const u=(d.u[i]||[]);const known=x[8]!==0;return `<tr>${n>1?`<td><input type="checkbox" data-iso="${i}" ${(sel>>BigInt(i))&1n?'checked':''} aria-label="Target ${esc(isoLab(i))}"></td>`:''}<td>${esc(x[1]||'')}${utr&&x[9]?` <span class="oname">variant ${esc(x[9])}</span>`:''}</td>${utr?`<td>${esc(x[5])}</td>`:''}<td>${esc(x[0])}${x[3].length?` <span class="oname">same ${utr?'transcript':'CDS'} as ${esc(x[3].join(', '))}</span>`:''}${x[4]?' <span class="flag">partial</span>':''}</td><td>${x[2].toLocaleString()} nt</td>
+      ${utr?(known?`<td class="u">${span(0,x[6])}</td><td class="u">${span(x[6],x[7])}</td><td class="u">${span(x[7],x[2])}</td>`:`<td class="u" colspan="3"><span class="flag">UTRs unknown: CDS only</span></td>`):''}
+      ${n>1?`<td class="u">${u.length?u.slice(0,6).map(uTxt).join(', ')+(u.length>6?` and ${u.length-6} more`:''):'none'}</td>`:''}</tr>`}).join('')+`</tbody></table></div>`}
+  if(n>1){h+=`
     <div class="radio opts" role="radiogroup" aria-label="Isoform mode"><label><input type="radio" name="mode" value="every" ${mode!=='only'?'checked':''}> Pairs present in every selected isoform</label>
     <label><input type="radio" name="mode" value="only" ${mode==='only'?'checked':''}> Only pairs absent from the unselected isoforms (to detect a specific variant)</label></div>`}
-  h+=`<div class="opts"><label>Pairs <input type="number" id="tn" min="1" max="${P.length}" value="${N}"></label><span class="hint">of ${P.length} available${n>1?' for this isoform choice':''}</span>
+  const parts=TX.parts[key]||2;
+  if(utr)h+=`<div class="radio opts" role="group" aria-label="Probe location"><span>Probe location</span>${[2,1,4].map(b=>`<label><input type="checkbox" data-part="${b}" ${parts&b?'checked':''}> ${PART[b]}</label>`).join('')}<span class="hint">CDS by default; tick a UTR to add pairs there. A pair crossing a boundary needs both parts ticked.</span></div>`;
+  h+=`<div class="opts"><label>Pairs <input type="number" id="tn" min="1" max="${P.length}" value="${N}"></label><span class="hint">of ${P.length} available${n>1||utr?' for this '+[n>1?'isoform':'',utr?'location':''].filter(Boolean).join(' and ')+' choice':''}</span>
       <label>Amplifier <select id="tamp">${DESIGN_AMPS.map(a=>`<option ${a===amp?'selected':''}>${a}</option>`).join('')}</select></label>
       <label>Fluorophore <select id="tfl">${FLUORS.map(f=>`<option ${f===fl?'selected':''}>${f}</option>`).join('')}</select></label>
       <button class="btn ghost" id="tcopy" ${N?'':'disabled'}>Copy sequences</button><button class="btn" id="tadd" ${N?'':'disabled'}>Add to order</button></div>`;
-  if(!N){box.innerHTML=h+`<div class="note">No pairs fit this isoform choice. Try "present in every selected isoform", or select fewer isoforms.</div>`;return}
+  if(!N){box.innerHTML=h+`<div class="note">No pairs fit this choice. Try "present in every selected isoform", select fewer isoforms${utr?', or tick another probe location':''}.</div>`;return}
   if(N<5)h+=`<div class="note">Only ${N} pair${N>1?'s':''}: signal may be weak with this few.</div>`;
   h+=`<article class="set" style="--c:${COLOR[amp]}"><div class="sethead"><h3><span class="chan">${amp} ${esc(fl)}</span> ${esc(label)} <span style="font-weight:400;color:var(--muted)">${N} pairs, designed, not tested</span></h3></div>
    <table><thead><tr><th>#</th><th>P1</th><th>P2</th><th>Target</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="num">${r.nn}</td>
    <td><div class="oname">${esc(r.n1)}</div>${oligo(r.q1,amp,'P1')}</td><td><div class="oname">${esc(r.n2)}</div>${oligo(r.q2,amp,'P2')}</td>
-   <td class="gm">nt ${r.p[4]+1}–${r.p[4]+52}${n>1?` of ${esc(isoLab(r.p[3]))}`:''}<div class="oname">quality ${r.p[1]}${n>1?'; '+esc(covTxt(r.p)):''}</div></td></tr>`).join('')}</tbody></table></article>
+   <td class="gm">${utr?`<b>${partTxt(r.p[5]??2)}</b> `:''}nt ${r.p[4]+1}–${r.p[4]+52}${n>1?` of ${esc(isoLab(r.p[3]))}`:''}<div class="oname">quality ${r.p[1]}${n>1?'; '+esc(covTxt(r.p)):''}</div></td></tr>`).join('')}</tbody></table></article>
    <p class="hint" style="margin-top:14px">${esc(I.meta.rules)} Quality is 100 for two arms at exactly 50% GC with no penalties.</p>`;
   box.innerHTML=h;
 }
 $('tq').addEventListener('input',txList);
 $('tsp').addEventListener('change',e=>{location.hash='tx/'+e.target.value;});
 $('tgenes').addEventListener('click',e=>{const b=e.target.closest('.g');if(b)location.hash=`tx/${TX.sp}/${encodeURIComponent(b.dataset.sym)}`;});
-$('tdetail').addEventListener('change',e=>{const c=TX.cur;if(!c&&!e.target.dataset.iso)return;const key=TX.sp+'|'+TX.gene;const t=e.target;
+$('tdetail').addEventListener('change',e=>{const c=TX.cur;if(!c&&!e.target.dataset.iso&&!e.target.dataset.part)return;const key=TX.sp+'|'+TX.gene;const t=e.target;
   if(t.dataset.iso!==undefined){const i=BigInt(t.dataset.iso);let m=TX.sel[key];if(m===undefined){m=0n;for(const x of document.querySelectorAll('[data-iso]'))if(x.checked||x===t)m|=1n<<BigInt(x.dataset.iso);if(!t.checked)m&=~(1n<<i)}else m=t.checked?m|(1n<<i):m&~(1n<<i);if(m===0n){t.checked=true;return}TX.sel[key]=m;}
+  if(t.dataset.part!==undefined){const b=+t.dataset.part;let m=TX.parts[key]||2;m=t.checked?m|b:m&~b;if(!m){t.checked=true;return}TX.parts[key]=m;}
   if(t.name==='mode')TX.mode[key]=t.value;
   if(t.id==='tn')TX.n[key]=Math.max(1,parseInt(t.value)||1);
   if(t.id==='tamp'){TX.amp[key]=t.value;if(!TX.fl[key])TX.fl[key]=D.amps[t.value].fl;}
@@ -456,11 +487,51 @@ function renderGuide(){
     <div><b>One amplifier per gene</b>Genes on the same amplifier show up in the same channel.</div>
     <div><b>Enough pairs</b>Fewer than 5 pairs may give a weak signal.</div>
     <div><b>Designed sets are untested</b>Lab sets have been made by lab members; designed sets come straight from the computer.</div>
-    <div><b>Hairpin sequences</b>All 20 amplifiers are on the Amplifiers &amp; hairpins tab.</div></div></section>
-   <section class="step"><h3><span class="k">7</span>Lab members: add your probes</h3>
-    <ol class="caps"><li>Copy templates/new_designer_TEMPLATE.xlsx into data/</li><li>Rename it with your name</li><li>Paste names and sequences</li><li>Save, then rebuild the page</li></ol></section>
+    <div><b>Hairpin sequences</b>All 20 amplifiers are on the Amplifiers &amp; hairpins tab.</div>
+    <div><b>CDS or UTRs</b>Designs sit in the CDS by default. For species with full transcripts, tick 5′UTR or 3′UTR to add pairs there.</div></div></section>
+   <section class="step"><h3><span class="k">7</span>Share your own probes</h3>
+    <ol class="caps"><li>Open <a href="#submit">Submit your probes</a></li><li>Download the form</li><li>Fill it in</li><li>Email it</li></ol></section>
   </div>`;
 }
+// ---------- submit your probes ----------
+// The address is stored encoded and only put together when someone clicks, so bots that harvest addresses
+// from web pages do not find it.
+const MAILK=[116,118,106,53,115,112,104,116,110,71,62,56,105,104,111,123,121,112,123];
+const mailAddr=()=>MAILK.map(c=>String.fromCharCode(c-7)).reverse().join('');
+function renderSubmit(){
+  const mock=`<div class="isowrap"><table class="mock"><thead><tr><th>Gene #</th><th>Gene short name *</th><th>Gene long name *</th><th>Species *</th><th>Gene ID or LOC *</th><th>Amplifier *</th><th>Did it work? *</th><th>Row check</th></tr></thead><tbody>
+    <tr><td>1</td><td>hth</td><td>homothorax</td><td>Bicyclus anynana</td><td>LOC…</td><td>B1</td><td>Works well</td><td class="ok">Ready ✓</td></tr>
+    <tr><td>2</td><td>Dll</td><td class="y"></td><td>Bicyclus anynana</td><td class="y"></td><td>B2</td><td class="y"></td><td style="background:#FFE2C2">Missing: long name, Gene ID…</td></tr>
+    <tr><td class="gr">3</td><td class="gr"></td><td class="gr"></td><td class="gr"></td><td class="gr"></td><td class="gr"></td><td class="gr"></td><td class="gr"></td></tr></tbody></table></div>`;
+  const pmock=`<div class="isowrap"><table class="mock"><thead><tr><th>Gene #</th><th>Gene</th><th>Pair #</th><th>P1 sequence (5′→3′) *</th><th>P2 sequence (5′→3′) *</th><th>Check</th></tr></thead><tbody>
+    <tr><td>1</td><td>hth</td><td>1</td><td><span class="seq" style="--c:var(--b1)"><span class="i">GAGGAGGGCAGCAAACGG</span><span class="s">AA</span>NNNN…</span></td><td><span class="seq" style="--c:var(--b1)">…NNNN<span class="s">TA</span><span class="i">GAAGAGTCTTCCTTTACG</span></span></td><td class="ok">OK ✓ (B1)</td></tr>
+    <tr><td>1</td><td>hth</td><td>2</td><td><span class="seq">…</span></td><td><span class="seq">…</span></td><td class="ok">OK ✓ (B1)</td></tr></tbody></table></div>`;
+  $('submitView').innerHTML=`<div class="guide">
+   <h2>Submit your probes</h2><p class="lead">Designed and ordered HCR probes? Share them here so others can find and reuse them.</p>
+   <section class="step"><h3><span class="k">1</span>Download the form</h3>
+    <a class="btn dl" href="templates/HCR_probe_submission.xlsx" download>Download the submission form (.xlsx)</a>
+    <p class="hint" style="margin-top:8px">Opens in Excel, Google Sheets, LibreOffice or Numbers. No macros. Up to 30 genes per file.</p></section>
+   <section class="step"><h3><span class="k">2</span>Fill it in</h3>
+    <ol class="caps"><li><span><b>About you</b>: name, initials, lab, institution</span></li><li><span><b>Genes</b>: type how many, then one row per gene</span></li><li><span><b>Probes</b>: one row per pair: gene #, P1, P2</span></li><li><span>Every pair should say <b>OK ✓</b></span></li></ol>
+    <p class="hint" style="margin-top:14px">Yellow cells are required. Rows past your number of genes stay gray.</p>${mock}
+    <p class="hint" style="margin-top:14px">Paste whole oligos, 5′ to 3′, exactly as ordered. The sheet reads the amplifier from the initiator.</p>${pmock}</section>
+   <section class="step"><h3><span class="k">3</span>Email it</h3>
+    <p class="lead">Save the file and attach it to an email.</p>
+    <div class="mailbox" id="mailbox"><button class="btn" id="showMail">Show the email address</button></div></section>
+   <section class="step"><h3><span class="k">4</span>It appears on the site</h3>
+    <p class="lead">Once checked, your sets are added to <a href="#">Lab probe sets</a> under your name, with your lab and how well they worked.</p></section>
+   <section class="step"><h3><span class="k">5</span>Good to know</h3><div class="tips">
+    <div><b>It becomes public</b>Gene names, sequences, your name and lab are shown to anyone. Don't send sets you want to keep private.</div>
+    <div><b>Did it work?</b>Say so honestly, even if it failed. That is what helps the next person most.</div>
+    <div><b>More genes or a fix</b>Send another file any time. For a correction, say which set it replaces.</div>
+    <div><b>Any amplifier</b>B1 to B5 are recognized from the sequence.</div></div></section>
+  </div>`;
+}
+$('submitView').addEventListener('click',e=>{const t=e.target;
+  if(t.id==='showMail'){const a=mailAddr(),sub=encodeURIComponent('HCR probe submission'),body=encodeURIComponent('Hello,\n\nPlease find my HCR probe submission form attached.\n\n');
+    $('mailbox').innerHTML=`<span class="addr">${esc(a)}</span><a class="btn" href="mailto:${a}?subject=${sub}&body=${body}">Write the email</a><button class="btn ghost" id="copyMail">Copy address</button>
+      <p class="hint" style="width:100%;margin:4px 0 0">Subject: <b>HCR probe submission</b>. Remember to attach the file.</p>`;}
+  if(t.id==='copyMail')navigator.clipboard.writeText(mailAddr()).then(()=>{t.textContent='Copied'},()=>{t.textContent='Copy blocked by browser'});});
 window.addEventListener('hashchange',fromHash);
 fromHash();
 </script>
@@ -525,6 +596,104 @@ for f in files:
             gname=s(r.get('NCBI protein name (genome_cds.fa)')), names=s(r.get('Names used in source files')),
             check=s(r.get('Check notes')), status=s(r.get('Status')), tube=s(r.get('Tube / location')), notes=s(r.get('Notes')), p=P))
 
+# ---------- probe sets submitted with templates/HCR_probe_submission.xlsx and dropped into user_submit/ ----------
+# Only typed-in cells are read (never formula results), so a file saved by Excel, Google Sheets or LibreOffice works.
+# Every pair is checked here; a pair that fails is left out and reported in the build log, never breaking the page.
+DEFAULT_AMPS = {'B1': ('AF546', 'GAGGAGGGCAGCAAACGG', 'AA', 'TA', 'GAAGAGTCTTCCTTTACG'),
+                'B2': ('AF647', 'CCTCGTAAATCCTCATCA', 'AA', 'AA', 'ATCATCCAGTAAACCGCC'),
+                'B3': ('AF488', 'GTCCCTGCCTCTATATCT', 'TT', 'TT', 'CCACTCAACTTTAACCCG'),
+                'B4': ('AF514', 'CCTCAACCTACCTCCAAC', 'AA', 'AT', 'TCTCACCATATTCGCTTC'),
+                'B5': ('AF594', 'CTCACTCCCAATCTCTAT', 'AA', 'AA', 'CTACCCTACAAATCCAAT')}
+amps = amps or {}
+for a, (fl, p1, s1, s2, p2) in DEFAULT_AMPS.items():
+    amps.setdefault(a, dict(fl=fl, p1=p1, s1=s1, s2=s2, p2=p2))
+subdir = sys.argv[3] if len(sys.argv) > 3 else os.path.join(here, 'user_submit')
+sub_files = sorted(f for f in glob.glob(os.path.join(subdir, '*.xlsx')) if not os.path.basename(f).startswith(('_', '~$')))
+def clean_seq(v): return re.sub(r'[\s\-]', '', s(v)).upper().replace('U', 'T')
+def amp_of(q1, q2):
+    a1 = next((a for a, A in amps.items() if q1.startswith(A['p1'])), None)
+    a2 = next((a for a, A in amps.items() if q2.endswith(A['p2'])), None)
+    return a1, a2
+def gene_key(v):
+    v = s(v).replace(' ', '')
+    if re.fullmatch(r'\d+', v): return 'GeneID:' + v
+    m = re.fullmatch(r'(?i)(?:NCBI)?GeneID:?(\d+)', v)
+    return 'GeneID:' + m.group(1) if m else v
+def as_date(v):
+    if isinstance(v, (datetime.date, datetime.datetime)): return v.strftime('%Y-%m-%d')
+    return s(v)
+used_prefix = {}                                   # set-ID prefix -> designer, so two people never share one
+for x in S: used_prefix.setdefault(re.sub(r'[-\d]+$', '', x['sid']).rstrip('-') or x['sid'], x['by'])
+subs = []
+for f in sub_files:
+    base = os.path.basename(f)
+    try:
+        wb = load_workbook(f, data_only=True)
+        ab, gs, ps = wb['1 About you'], wb['2 Genes'], wb['3 Probes']
+    except Exception as e:
+        print(f'user_submit/{base}: skipped, not a submission form ({e})'); continue
+    info = {s(ab.cell(r, 1).value): ab.cell(r, 2).value for r in range(1, 20) if s(ab.cell(r, 1).value)}
+    who = s(info.get('Your name'))
+    if not who: print(f'user_submit/{base}: skipped, "Your name" is empty'); continue
+    subs.append((as_date(info.get('Date of this submission')), base, who, info, gs, ps))
+subs.sort(key=lambda t: (t[2].lower(), t[0], t[1]))      # each person's files in date order, so set numbers stay put
+counter = Counter(); n_sub = 0
+for date, base, who, info, gs, ps in subs:
+    init = re.sub(r'[^A-Za-z]', '', s(info.get('Initials for your set IDs'))).upper()[:4] or ''.join(w[0] for w in who.split()).upper()[:4]
+    pre = init; k = 2
+    while used_prefix.get(pre, who) != who: pre = f'{init}{k}'; k += 1
+    used_prefix[pre] = who
+    if who not in designers: designers.append(who)
+    genes_in = {}
+    for r in range(6, 6 + 30):
+        num = gs.cell(r, 1).value; short = s(gs.cell(r, 2).value)
+        if not short: continue
+        genes_in[int(num) if isinstance(num, (int, float)) else r - 5] = dict(
+            short=short, long=s(gs.cell(r, 3).value), org=re.sub(r'^Other:.*$', '', s(gs.cell(r, 4).value)) or 'Not stated',
+            loc=gene_key(gs.cell(r, 5).value), tx=s(gs.cell(r, 6).value), amp=s(gs.cell(r, 7).value).upper(),
+            dye=s(gs.cell(r, 8).value), region=s(gs.cell(r, 9).value), method=s(gs.cell(r, 10).value), works=s(gs.cell(r, 11).value),
+            tissue=s(gs.cell(r, 12).value), odate=as_date(gs.cell(r, 13).value), vendor=s(gs.cell(r, 14).value), notes=s(gs.cell(r, 15).value))
+    pairs = defaultdict(list); problems = []
+    for r in range(5, ps.max_row + 1):
+        gn, q1, q2 = ps.cell(r, 1).value, clean_seq(ps.cell(r, 4).value), clean_seq(ps.cell(r, 5).value)
+        if gn in (None, '') and not q1 and not q2: continue
+        try: gn = int(gn)
+        except (TypeError, ValueError): problems.append(f'row {r}: no gene number'); continue
+        if gn not in genes_in: problems.append(f'row {r}: gene #{gn} is not filled in on "2 Genes"'); continue
+        if not q1 or not q2: problems.append(f'row {r}: P1 or P2 missing'); continue
+        if re.search(r'[^ACGT]', q1 + q2): problems.append(f'row {r}: letters other than A, C, G, T'); continue
+        a1, a2 = amp_of(q1, q2)
+        if not a1 or not a2 or a1 != a2: problems.append(f'row {r}: initiators not recognized or mixed ({a1 or "?"} / {a2 or "?"})'); continue
+        pairs[gn].append((q1, q2, a1, s(ps.cell(r, 7).value), s(ps.cell(r, 8).value)))
+    for gn in sorted(genes_in):
+        g = genes_in[gn]; P0 = pairs.get(gn, [])
+        if not P0: problems.append(f'gene #{gn} ({g["short"]}): no usable pairs, left out'); continue
+        seen_amp = Counter(p[2] for p in P0).most_common(1)[0][0]
+        note = []
+        if g['amp'] in amps and g['amp'] != seen_amp:
+            note.append(f'The form says {g["amp"]}, but the sequences carry the {seen_amp} initiator; shown as {seen_amp}.')
+        amp = seen_amp
+        if any(p[2] != amp for p in P0):
+            problems.append(f'gene #{gn} ({g["short"]}): {sum(p[2] != amp for p in P0)} pair(s) on another amplifier left out')
+            P0 = [p for p in P0 if p[2] == amp]
+        counter[pre] += 1; sid = f'{pre}-{counter[pre]:03d}'
+        label = re.sub(r'[^A-Za-z0-9.\-()]+', '-', g['short'])
+        P = []
+        for i, (q1, q2, _, o1, o2) in enumerate(P0, 1):
+            nn = f'{i:02d}'
+            P.append([str(i), f'{label}_{amp}_P1_{nn}', q1[20:], f'{label}_{amp}_P2_{nn}', q2[:-20], q1, q2, '',
+                      '' if len(q1) == 45 and len(q2) == 45 else f'lengths {len(q1)} and {len(q2)} nt', o1, o2])
+        short, long_, aka = names_for(g['short'])
+        x = dict(id=f'{who}:{sid}', sid=sid, by=who, file='user_submit/' + base, gene=g['short'], full=g['long'] or long_,
+                 org=g['org'], loc=g['loc'], gloc='', short=g['short'], long=g['long'] or long_, aka=aka, amp=amp,
+                 fl=g['dye'] if g['dye'] and not g['dye'].startswith('Other') else amps[amp]['fl'], gv=None, checked=False, weak=False,
+                 gname='', names=g['short'], check=' '.join(note), status=g['works'], tube='', notes=g['notes'], p=P,
+                 sub=dict(lab=s(info.get('Lab / PI')), inst=s(info.get('Institution')), date=date, tx=g['tx'], region=g['region'],
+                          method=g['method'], tissue=g['tissue'], odate=g['odate'], vendor=g['vendor']))
+        S.append(x); n_sub += 1
+    print(f'user_submit/{base}: {who} ({pre}), {(lambda n: f"{n} set" + ("s" if n != 1 else ""))(sum(1 for x in S if x["file"] == "user_submit/" + base))}'
+          + (''.join(f'\n   - {p}' for p in problems) if problems else ', no problems'))
+
 # oligos that do not carry the initiator of their set's amplifier
 for x in S:
     A = amps.get(x['amp'])
@@ -582,7 +751,9 @@ if os.path.exists(hpath):
         if re.fullmatch(r'B\d+', a):
             hair[a] = dict(dye=s(r.get('Dye in source document')), I1=s(r.get('I1')), I2=s(r.get('I2')), H1=s(r.get('H1 (3′ dye)')), H2=s(r.get('H2 (5′ dye)')))
 outdir = os.path.dirname(os.path.abspath(out))
-tx = [dict(id=k, name=v) for k, v in (('bany', 'Bicyclus anynana'), ('danio', 'Danio rerio'))
+SPECIES = (('bany', 'Bicyclus anynana'), ('danio', 'Danio rerio'), ('nfur', 'Nothobranchius furzeri (killifish)'),
+           ('dmel', 'Drosophila melanogaster'), ('cele', 'Caenorhabditis elegans'), ('mmus', 'Mus musculus'), ('hsap', 'Homo sapiens'))
+tx = [dict(id=k, name=v) for k, v in SPECIES
       if os.path.exists(os.path.join(outdir, 'tx', k, 'index.js')) or os.path.exists(os.path.join(here, 'tx', k, 'index.js'))]
 import base64
 guide = {}
@@ -593,6 +764,6 @@ if os.path.isdir(gdir):
             guide[f[:-4]] = 'data:image/jpeg;base64,' + base64.b64encode(open(os.path.join(gdir, f), 'rb').read()).decode()
 data = dict(amps=amps, sets=byid, genes=genes, designers=designers, hairpins=hair, tx=tx, guide=guide,
             hairpinNote='Hairpin sequences from B1_B20.docx; the dye in that document is the one it lists, not necessarily what the lab orders.', built=datetime.date.today().isoformat(),
-            source=', '.join(os.path.basename(f) for f in files))
+            source=', '.join(os.path.basename(f) for f in files) + (f' and {len(subs)} submitted file{"s" if len(subs) != 1 else ""}' if subs else ''))
 open(out, 'w', encoding='utf-8').write(TEMPLATE.replace('/*__DATA__*/null', json.dumps(data, separators=(',', ':'))))
 print(f'wrote {out}: {len(files)} files, {len(genes)} genes, {len(S)} sets, {sum(len(x["p"]) for x in S)} pairs')
