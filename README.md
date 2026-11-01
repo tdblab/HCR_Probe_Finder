@@ -3,6 +3,8 @@
 All HCR probe sets designed in the lab, one Excel file per person, plus a searchable viewer
 (`index.html`) built from them.
 
+Database link: https://tirthadasbanerjee.com/HCR_Probe_Finder/
+
 <img width="1262" height="1244" alt="hcr_probe_finder" src="https://github.com/user-attachments/assets/a128d790-df3c-4edc-836c-a41bab7a59df" />
 
 
